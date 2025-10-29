@@ -1,0 +1,17 @@
+[package]
+name = "bagery"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.48", default-features = false, features = [
+  "macros",
+  "net",
+  "rt-multi-thread",
+] }
+clap = { version = "4.5", features = ["derive"] }
+axum = { version = "0.8.6", default-features = false, features = [
+  "tokio",
+  "http1",
+] }
+color-eyre = "0.6.5"
