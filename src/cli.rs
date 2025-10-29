@@ -34,6 +34,8 @@ pub enum Command {
     Dev(DevCommand),
     /// Build for production
     Build(BuildCommand),
+    /// Clean build directories
+    Clean(CleanCommand),
 }
 
 #[derive(Parser)]
@@ -41,6 +43,9 @@ pub struct DevCommand {}
 
 #[derive(Parser)]
 pub struct BuildCommand {}
+
+#[derive(Parser)]
+pub struct CleanCommand {}
 
 pub fn parse_args() -> Args {
     Args::parse()

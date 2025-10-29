@@ -114,6 +114,7 @@ macro_rules! __trace {
     };
 }
 
+#[allow(unused_imports)]
 pub mod prelude {
     pub use super::{Level, colors_enabled, max_level, set_colors_enabled, set_max_level};
     pub use crate::__debug as debug;

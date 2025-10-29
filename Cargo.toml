@@ -8,6 +8,8 @@ tokio = { version = "1.48", default-features = false, features = [
   "macros",
   "net",
   "rt-multi-thread",
+  "fs",
+  "process",
 ] }
 clap = { version = "4.5", features = ["derive"] }
 axum = { version = "0.8.6", default-features = false, features = [
@@ -15,3 +17,9 @@ axum = { version = "0.8.6", default-features = false, features = [
   "http1",
 ] }
 color-eyre = "0.6.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json5 = "0.1"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["fs"] }
+notify = "6.1"
+indicatif = "0.18"
