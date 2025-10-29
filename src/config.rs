@@ -1,8 +1,8 @@
+use color_eyre::eyre::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::fs;
-use color_eyre::eyre::{Result, Context};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -47,15 +47,18 @@ pub struct EnvFiles {
 }
 
 fn default_title() -> String {
-    "Bagery App".to_string()
+    "Bageri App".to_string()
 }
 
 fn default_pages() -> HashMap<String, Page> {
     let mut pages = HashMap::new();
-    pages.insert("index".to_string(), Page {
-        script: "index.js".to_string(),
-        title: None,
-    });
+    pages.insert(
+        "index".to_string(),
+        Page {
+            script: "index.js".to_string(),
+            title: None,
+        },
+    );
     pages
 }
 
@@ -65,11 +68,12 @@ fn default_output_dir() -> String {
 
 impl Config {
     pub async fn load() -> Result<Self> {
-        Self::load_from("bagery.json5").await
+        Self::load_from("bageri.json5").await
     }
 
     pub async fn load_from<P: AsRef<Path>>(path: P) -> Result<Self> {
-        let content = fs::read_to_string(&path).await
+        let content = fs::read_to_string(&path)
+            .await
             .with_context(|| format!("Failed to read config file: {}", path.as_ref().display()))?;
 
         let mut config: Config = serde_json5::from_str(&content)
@@ -100,3 +104,4 @@ impl Config {
         Ok(config)
     }
 }
+

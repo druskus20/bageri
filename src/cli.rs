@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "bagery")]
+#[command(name = "bageri")]
 #[command(about = "A custom web bundler", long_about = None)]
 pub struct Args {
     #[command(subcommand)]

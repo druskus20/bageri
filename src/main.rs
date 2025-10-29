@@ -7,7 +7,6 @@ mod prelude {
 use prelude::*;
 
 use axum::{Router, routing::get};
-use tower_http::services::ServeDir;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{
     collections::VecDeque,
@@ -15,6 +14,7 @@ use std::{
     sync::{Arc, Mutex},
     thread,
 };
+use tower_http::services::ServeDir;
 
 mod cli;
 mod config;
@@ -38,13 +38,14 @@ async fn main() {
 }
 
 async fn handler() -> &'static str {
-    "Hello from Bagery!"
+    "Hello from Bageri!"
 }
 
 async fn dev() -> Result<()> {
     info!("Starting development server...");
 
-    let config = config::Config::load().await
+    let config = config::Config::load()
+        .await
         .wrap_err("Failed to load configuration")?;
 
     // Run initial build
@@ -60,12 +61,16 @@ async fn dev() -> Result<()> {
                 info!("Rebuild completed");
             }
         });
-    }).wrap_err("Failed to start file watcher")?;
+    })
+    .wrap_err("Failed to start file watcher")?;
 
     info!("Watching src/ directory for changes");
 
     let app = Router::new()
-        .route("/", get(|| async { axum::response::Redirect::permanent("/index.html") }))
+        .route(
+            "/",
+            get(|| async { axum::response::Redirect::permanent("/index.html") }),
+        )
         .fallback_service(ServeDir::new(&config.output_dir));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
@@ -83,11 +88,13 @@ async fn dev() -> Result<()> {
 async fn build() -> Result<()> {
     info!("Building for production...");
 
-    let config = config::Config::load().await
+    let config = config::Config::load()
+        .await
         .wrap_err("Failed to load configuration")?;
 
     // Create output directory
-    tokio::fs::create_dir_all(&config.output_dir).await
+    tokio::fs::create_dir_all(&config.output_dir)
+        .await
         .wrap_err("Failed to create output directory")?;
 
     // Run pre-build hooks if specified
@@ -100,7 +107,12 @@ async fn build() -> Result<()> {
                 ProgressStyle::with_template("{spinner:.cyan} [{elapsed_precise}] {msg}")
                     .unwrap_or_else(|_| ProgressStyle::default_spinner()),
             );
-            pb.set_message(format!("Running hook {}/{}: {}", i + 1, config.pre_hook.len(), cmd));
+            pb.set_message(format!(
+                "Running hook {}/{}: {}",
+                i + 1,
+                config.pre_hook.len(),
+                cmd
+            ));
             pb.enable_steady_tick(std::time::Duration::from_millis(100));
 
             // Use spawned process to capture output in real-time
@@ -158,10 +170,17 @@ async fn build() -> Result<()> {
                     error!("Hook stdout: {}", String::from_utf8_lossy(&output.stdout));
                 }
 
-                return Err(color_eyre::eyre::eyre!("Pre-build hook failed with exit code: {:?}", output.status.code()));
+                return Err(color_eyre::eyre::eyre!(
+                    "Pre-build hook failed with exit code: {:?}",
+                    output.status.code()
+                ));
             }
 
-            pb.finish_with_message(format!("Hook {}/{} completed", i + 1, config.pre_hook.len()));
+            pb.finish_with_message(format!(
+                "Hook {}/{} completed",
+                i + 1,
+                config.pre_hook.len()
+            ));
         }
         info!("All pre-build hooks completed successfully");
     }
@@ -175,13 +194,17 @@ async fn build() -> Result<()> {
             format!("{}/{}.html", config.output_dir, page_name)
         };
 
-        tokio::fs::write(&html_filename, html_content).await
+        tokio::fs::write(&html_filename, html_content)
+            .await
             .wrap_err_with(|| format!("Failed to write HTML file: {}", html_filename))?;
 
         info!("Generated HTML file: {}", html_filename);
     }
 
-    info!("Build complete! Static files are in the {} directory.", config.output_dir);
+    info!(
+        "Build complete! Static files are in the {} directory.",
+        config.output_dir
+    );
     Ok(())
 }
 
@@ -280,12 +303,14 @@ fn spawn_stderr_reader<R: std::io::Read + Send + 'static>(
 async fn clean() -> Result<()> {
     info!("Cleaning build directories...");
 
-    let config = config::Config::load().await
+    let config = config::Config::load()
+        .await
         .wrap_err("Failed to load configuration")?;
 
-    // Clean bagery output directory
+    // Clean bageri output directory
     if tokio::fs::metadata(&config.output_dir).await.is_ok() {
-        tokio::fs::remove_dir_all(&config.output_dir).await
+        tokio::fs::remove_dir_all(&config.output_dir)
+            .await
             .wrap_err_with(|| format!("Failed to remove directory: {}", config.output_dir))?;
         info!("Cleaned directory: {}", config.output_dir);
     } else {
@@ -294,7 +319,8 @@ async fn clean() -> Result<()> {
 
     // Clean .lustre directory (hardcoded since it's used in the hook)
     if tokio::fs::metadata(".lustre").await.is_ok() {
-        tokio::fs::remove_dir_all(".lustre").await
+        tokio::fs::remove_dir_all(".lustre")
+            .await
             .wrap_err("Failed to remove .lustre directory")?;
         info!("Cleaned directory: .lustre");
     } else {
