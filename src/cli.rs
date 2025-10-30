@@ -36,6 +36,8 @@ pub enum Command {
     Build(BuildCommand),
     /// Clean build directories
     Clean(CleanCommand),
+    /// Initialize a new bageri project in current directory
+    Init(InitCommand),
 }
 
 #[derive(Parser)]
@@ -46,6 +48,9 @@ pub struct BuildCommand {}
 
 #[derive(Parser)]
 pub struct CleanCommand {}
+
+#[derive(Parser)]
+pub struct InitCommand {}
 
 pub fn parse_args() -> Args {
     Args::parse()

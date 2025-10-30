@@ -33,6 +33,7 @@ async fn main() {
         cli::Command::Dev(_) => dev().await,
         cli::Command::Build(_) => build().await,
         cli::Command::Clean(_) => clean().await,
+        cli::Command::Init(_) => init().await,
     }
     .unwrap();
 }
@@ -298,6 +299,54 @@ fn spawn_stderr_reader<R: std::io::Read + Send + 'static>(
             }
         }
     });
+}
+
+async fn init() -> Result<()> {
+    info!("Initializing new bageri project...");
+
+    let config_path = "bageri.json5";
+
+    // Check if config already exists
+    if tokio::fs::metadata(config_path).await.is_ok() {
+        return Err(color_eyre::eyre::eyre!(
+            "bageri.json5 already exists in current directory. Remove it first to reinitialize."
+        ));
+    }
+
+    // Create default config
+    let default_config = r#"{
+    title: "Bageri App",
+    pages: {
+        index: {
+            script: "index.js"
+        }
+    },
+    // favicon: "favicon.ico",
+    meta: {
+        // description: "My awesome web app",
+        // author: "Your Name"
+    },
+    env_files: {
+        dev: ".env",
+        prd: ".env.prd"
+    },
+    pre_hook: [
+        // "npm run build"
+    ],
+    output_dir: "dist"
+}"#;
+
+    tokio::fs::write(config_path, default_config)
+        .await
+        .wrap_err("Failed to create bageri.json5")?;
+
+    info!("Created {}", config_path);
+    info!("Project initialized! You can now run:");
+    info!("  bageri dev    - Start development server");
+    info!("  bageri build  - Build for production");
+    info!("  bageri clean  - Clean build directories");
+
+    Ok(())
 }
 
 async fn clean() -> Result<()> {
