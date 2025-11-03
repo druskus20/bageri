@@ -1,5 +1,5 @@
 use crate::config::{Config, Page};
-use maud::{html, PreEscaped, Markup, DOCTYPE};
+use maud::{DOCTYPE, Markup, PreEscaped, html};
 use std::collections::HashMap;
 
 pub fn generate_html(config: &Config, page_name: &str, page: &Page) -> String {
@@ -39,9 +39,11 @@ fn generate_meta_tags(meta: &HashMap<String, String>) -> Markup {
 }
 
 fn generate_env_object(env: &HashMap<String, String>) -> String {
-    let entries = env.iter()
+    let entries = env
+        .iter()
         .map(|(key, value)| {
-            format!(r#"            "{}": "{}""#,
+            format!(
+                r#"            "{}": "{}""#,
                 escape_js(key),
                 escape_js(value)
             )
@@ -63,3 +65,4 @@ fn escape_js(s: &str) -> String {
         .replace('\r', "\\r")
         .replace('\t', "\\t")
 }
+
