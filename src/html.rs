@@ -65,4 +65,3 @@ fn escape_js(s: &str) -> String {
         .replace('\r', "\\r")
         .replace('\t', "\\t")
 }
-

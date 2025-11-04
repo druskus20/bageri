@@ -6,14 +6,8 @@ use tokio::fs;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    #[serde(default = "default_title")]
-    pub title: String,
-
-    #[serde(default)]
-    pub favicon: Option<String>,
-
-    #[serde(default)]
-    pub meta: HashMap<String, String>,
+    #[serde(flatten)]
+    default_page_attributes: PageAttributes,
 
     #[serde(default = "default_pages")]
     pub pages: HashMap<String, Page>,
@@ -24,7 +18,6 @@ pub struct Config {
     #[serde(skip)]
     pub env: HashMap<String, String>,
 
-    #[serde(default)]
     pub pre_hook: Vec<String>,
 
     #[serde(default = "default_output_dir")]
@@ -32,10 +25,36 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Page {
-    pub script: String,
+pub struct PageAttributes {
+    #[serde(default = "default_title")]
+    pub title: String,
+
     #[serde(default)]
-    pub title: Option<String>,
+    pub favicon: Option<String>,
+
+    pub author: Option<String>,
+
+    pub description: Option<String>,
+
+    pub scripts: Vec<String>,
+}
+
+impl Default for PageAttributes {
+    fn default() -> Self {
+        Self {
+            title: default_title(),
+            favicon: None,
+            author: None,
+            description: None,
+            scripts: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Page {
+    #[serde(flatten)]
+    pub attributes: PageAttributes,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -55,8 +74,7 @@ fn default_pages() -> HashMap<String, Page> {
     pages.insert(
         "index".to_string(),
         Page {
-            script: "index.js".to_string(),
-            title: None,
+            attributes: PageAttributes::default(),
         },
     );
     pages
@@ -104,4 +122,3 @@ impl Config {
         Ok(config)
     }
 }
-
