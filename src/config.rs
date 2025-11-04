@@ -7,7 +7,7 @@ use tokio::fs;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(flatten)]
-    default_page_attributes: PageAttributes,
+    pub default_page_attributes: PageAttributes,
 
     #[serde(default = "default_pages")]
     pub pages: HashMap<String, Page>,
@@ -18,10 +18,24 @@ pub struct Config {
     #[serde(skip)]
     pub env: HashMap<String, String>,
 
+    #[serde(default)]
     pub pre_hook: Vec<String>,
 
     #[serde(default = "default_output_dir")]
     pub output_dir: String,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            default_page_attributes: PageAttributes::default(),
+            pages: default_pages(),
+            env_files: EnvFiles::default(),
+            env: HashMap::new(),
+            pre_hook: Vec::new(),
+            output_dir: default_output_dir(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,13 +43,16 @@ pub struct PageAttributes {
     #[serde(default = "default_title")]
     pub title: String,
 
+    #[serde(default = "default_favicon")]
+    pub favicon: String,
+
+    #[serde(default = "default_author")]
+    pub author: String,
+
+    #[serde(default = "default_description")]
+    pub description: String,
+
     #[serde(default)]
-    pub favicon: Option<String>,
-
-    pub author: Option<String>,
-
-    pub description: Option<String>,
-
     pub scripts: Vec<String>,
 }
 
@@ -43,15 +60,15 @@ impl Default for PageAttributes {
     fn default() -> Self {
         Self {
             title: default_title(),
-            favicon: None,
-            author: None,
-            description: None,
+            favicon: default_favicon(),
+            author: default_author(),
+            description: default_description(),
             scripts: Vec::new(),
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Page {
     #[serde(flatten)]
     pub attributes: PageAttributes,
@@ -67,6 +84,18 @@ pub struct EnvFiles {
 
 fn default_title() -> String {
     "Bageri App".to_string()
+}
+
+fn default_author() -> String {
+    "Your Name".to_string()
+}
+
+fn default_description() -> String {
+    "Description".to_string()
+}
+
+fn default_favicon() -> String {
+    "favicon.ico".to_string()
 }
 
 fn default_pages() -> HashMap<String, Page> {

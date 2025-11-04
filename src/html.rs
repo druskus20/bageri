@@ -1,9 +1,13 @@
-use crate::config::{Config, Page};
+use crate::config::{Config, Page, PageAttributes};
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use std::collections::HashMap;
 
-pub fn generate_html(config: &Config, page_name: &str, page: &Page) -> String {
-    let title = page.title.as_ref().unwrap_or(&config.title);
+pub fn generate_html(config: &Config, page: &Page) -> String {
+    let title = if page.attributes.title.is_empty() {
+        &config.default_page_attributes.title
+    } else {
+        &page.attributes.title
+    };
 
     let markup = html! {
         (DOCTYPE)
@@ -12,17 +16,20 @@ pub fn generate_html(config: &Config, page_name: &str, page: &Page) -> String {
                 meta charset="UTF-8";
                 meta name="viewport" content="width=device-width, initial-scale=1.0";
                 title { (title) }
-                @if let Some(favicon) = &config.favicon {
+                @if !page.attributes.favicon.is_empty() || !config.default_page_attributes.favicon.is_empty() {
+                    @let favicon = if !page.attributes.favicon.is_empty() { &page.attributes.favicon } else { &config.default_page_attributes.favicon };
                     link rel="icon" href=(favicon);
                 }
-                (generate_meta_tags(&config.meta))
+                (generate_meta_tags(&page.attributes, &config.default_page_attributes))
+                @for script in &page.attributes.scripts {
+                    script type="module" src=(script) {}
+                }
                 script {
                     (PreEscaped(format!("// Inject environment variables\nwindow.ENV = {};", generate_env_object(&config.env))))
                 }
             }
             body {
                 div id="app" {}
-                script type="module" src=(format!("./{}", page.script)) {}
             }
         }
     };
@@ -30,10 +37,15 @@ pub fn generate_html(config: &Config, page_name: &str, page: &Page) -> String {
     markup.into_string()
 }
 
-fn generate_meta_tags(meta: &HashMap<String, String>) -> Markup {
+fn generate_meta_tags(page_attrs: &PageAttributes, default_attrs: &PageAttributes) -> Markup {
     html! {
-        @for (name, content) in meta {
-            meta name=(name) content=(content);
+        @if !page_attrs.author.is_empty() || !default_attrs.author.is_empty() {
+            @let author = if !page_attrs.author.is_empty() { &page_attrs.author } else { &default_attrs.author };
+            meta name="author" content=(author);
+        }
+        @if !page_attrs.description.is_empty() || !default_attrs.description.is_empty() {
+            @let description = if !page_attrs.description.is_empty() { &page_attrs.description } else { &default_attrs.description };
+            meta name="description" content=(description);
         }
     }
 }
@@ -54,7 +66,7 @@ fn generate_env_object(env: &HashMap<String, String>) -> String {
     if entries.is_empty() {
         "{}".to_string()
     } else {
-        format!("{{\n{}\n        }}", entries)
+        format!("{{\n{entries}\n        }}")
     }
 }
 

@@ -13,7 +13,7 @@ pub fn watch_files<P: AsRef<Path>>(
     let mut watcher = RecommendedWatcher::new(
         move |res| {
             if let Err(e) = tx.send(res) {
-                eprintln!("Failed to send watch event: {}", e);
+                eprintln!("Failed to send watch event: {e}");
             }
         },
         Config::default(),
@@ -34,7 +34,7 @@ pub fn watch_files<P: AsRef<Path>>(
                             debounce_timer = Some(tokio::time::Instant::now());
                         }
                         Err(e) => {
-                            eprintln!("Watch error: {}", e);
+                            eprintln!("Watch error: {e}");
                         }
                     }
                 }

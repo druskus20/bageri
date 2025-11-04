@@ -38,10 +38,6 @@ async fn main() {
     .unwrap();
 }
 
-async fn handler() -> &'static str {
-    "Hello from Bageri!"
-}
-
 async fn dev() -> Result<()> {
     info!("Starting development server...");
 
@@ -123,7 +119,7 @@ async fn build() -> Result<()> {
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .spawn()
-                .wrap_err_with(|| format!("Failed to spawn pre-build hook: {}", cmd))?;
+                .wrap_err_with(|| format!("Failed to spawn pre-build hook: {cmd}"))?;
 
             // Read both stdout and stderr in separate threads
             let pb_clone = pb.clone();
@@ -152,7 +148,7 @@ async fn build() -> Result<()> {
 
             let output = child
                 .wait_with_output()
-                .wrap_err_with(|| format!("Failed to complete pre-build hook: {}", cmd))?;
+                .wrap_err_with(|| format!("Failed to complete pre-build hook: {cmd}"))?;
 
             if !output.status.success() {
                 pb.finish_with_message(format!("Hook {}/{} failed", i + 1, config.pre_hook.len()));
@@ -188,7 +184,7 @@ async fn build() -> Result<()> {
 
     // Generate HTML files for each page
     for (page_name, page) in &config.pages {
-        let html_content = html::generate_html(&config, page_name, page);
+        let html_content = html::generate_html(&config, page);
         let html_filename = if page_name == "index" {
             format!("{}/index.html", config.output_dir)
         } else {
@@ -197,7 +193,7 @@ async fn build() -> Result<()> {
 
         tokio::fs::write(&html_filename, html_content)
             .await
-            .wrap_err_with(|| format!("Failed to write HTML file: {}", html_filename))?;
+            .wrap_err_with(|| format!("Failed to write HTML file: {html_filename}"))?;
 
         info!("Generated HTML file: {}", html_filename);
     }
@@ -238,13 +234,13 @@ fn spawn_output_reader<R: std::io::Read + Send + 'static>(
                         if line.chars().count() > 80 {
                             format!(" {}...", line.chars().take(77).collect::<String>())
                         } else {
-                            format!(" {}", line)
+                            format!(" {line}")
                         }
                     })
                     .collect();
 
                 let display_text = if display_lines.is_empty() {
-                    format!("Running {}...", cmd_name)
+                    format!("Running {cmd_name}...")
                 } else {
                     format!("Running {}:\n{}", cmd_name, display_lines.join("\n"))
                 };
@@ -284,13 +280,13 @@ fn spawn_stderr_reader<R: std::io::Read + Send + 'static>(
                         if line.chars().count() > 80 {
                             format!(" {}...", line.chars().take(77).collect::<String>())
                         } else {
-                            format!(" {}", line)
+                            format!(" {line}")
                         }
                     })
                     .collect();
 
                 let display_text = if display_lines.is_empty() {
-                    format!("Running {}...", cmd_name)
+                    format!("Running {cmd_name}...")
                 } else {
                     format!("Running {}:\n{}", cmd_name, display_lines.join("\n"))
                 };
@@ -313,30 +309,13 @@ async fn init() -> Result<()> {
         ));
     }
 
-    // Create default config
-    let default_config = r#"{
-    title: "Bageri App",
-    pages: {
-        index: {
-            script: "index.js"
-        }
-    },
-    // favicon: "favicon.ico",
-    meta: {
-        // description: "My awesome web app",
-        // author: "Your Name"
-    },
-    env_files: {
-        dev: ".env",
-        prd: ".env.prd"
-    },
-    pre_hook: [
-        // "npm run build"
-    ],
-    output_dir: "dist"
-}"#;
+    // Create default config using serde and Default
+    let default_config = config::Config::default();
+    let config_json =
+        serde_json5::to_string(&default_config).wrap_err("Failed to serialize default config")?;
+    let config_json = format_pretty_json5(&config_json);
 
-    tokio::fs::write(config_path, default_config)
+    tokio::fs::write(config_path, config_json)
         .await
         .wrap_err("Failed to create bageri.json5")?;
 
@@ -378,4 +357,50 @@ async fn clean() -> Result<()> {
 
     info!("Clean complete!");
     Ok(())
+}
+
+fn format_pretty_json5(json: &str) -> String {
+    let mut result = String::new();
+    let mut indent_level = 0;
+    let mut in_string = false;
+    let mut prev_char = '\0';
+
+    for ch in json.chars() {
+        match ch {
+            '"' if prev_char != '\\' => {
+                in_string = !in_string;
+                result.push(ch);
+            }
+            '{' | '[' if !in_string => {
+                result.push(ch);
+                indent_level += 1;
+                result.push('\n');
+                result.push_str(&"    ".repeat(indent_level));
+            }
+            '}' | ']' if !in_string => {
+                indent_level -= 1;
+                result.push('\n');
+                result.push_str(&"    ".repeat(indent_level));
+                result.push(ch);
+            }
+            ',' if !in_string => {
+                result.push(ch);
+                result.push('\n');
+                result.push_str(&"    ".repeat(indent_level));
+            }
+            ':' if !in_string => {
+                result.push(ch);
+                result.push(' ');
+            }
+            ' ' if !in_string => {
+                // Skip extra spaces outside strings
+            }
+            _ => {
+                result.push(ch);
+            }
+        }
+        prev_char = ch;
+    }
+
+    result
 }
