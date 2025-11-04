@@ -21,6 +21,11 @@ pub fn generate_html(config: &Config, page: &Page) -> String {
                     link rel="icon" href=(favicon);
                 }
                 (generate_meta_tags(&page.attributes, &config.default_page_attributes))
+                // Include global scripts first
+                @for script in &config.default_page_attributes.scripts {
+                    script type="module" src=(script) {}
+                }
+                // Then include page-specific scripts
                 @for script in &page.attributes.scripts {
                     script type="module" src=(script) {}
                 }
