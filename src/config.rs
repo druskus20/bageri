@@ -10,7 +10,7 @@ pub struct Config {
     pub default_page_attributes: PageAttributes,
 
     #[serde(default = "default_pages")]
-    pub pages: HashMap<String, Page>,
+    pub spa_pages: HashMap<String, SpaPage>,
 
     #[serde(default)]
     pub env_files: EnvFiles,
@@ -29,7 +29,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             default_page_attributes: PageAttributes::default(),
-            pages: default_pages(),
+            spa_pages: default_pages(),
             env_files: EnvFiles::default(),
             env: HashMap::new(),
             pre_hook: Vec::new(),
@@ -69,7 +69,7 @@ impl Default for PageAttributes {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Page {
+pub struct SpaPage {
     #[serde(flatten)]
     pub attributes: PageAttributes,
 }
@@ -98,11 +98,11 @@ fn default_favicon() -> String {
     "favicon.ico".to_string()
 }
 
-fn default_pages() -> HashMap<String, Page> {
+fn default_pages() -> HashMap<String, SpaPage> {
     let mut pages = HashMap::new();
     pages.insert(
         "index".to_string(),
-        Page {
+        SpaPage {
             attributes: PageAttributes::default(),
         },
     );

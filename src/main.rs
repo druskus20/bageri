@@ -183,7 +183,7 @@ async fn build() -> Result<()> {
     }
 
     // Generate HTML files for each page
-    for (page_name, page) in &config.pages {
+    for (page_name, page) in &config.spa_pages {
         let html_content = html::generate_html(&config, page);
         let html_filename = if page_name == "index" {
             format!("{}/index.html", config.output_dir)

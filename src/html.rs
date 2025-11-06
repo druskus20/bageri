@@ -1,8 +1,8 @@
-use crate::config::{Config, Page, PageAttributes};
+use crate::config::{Config, PageAttributes, SpaPage};
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use std::collections::HashMap;
 
-pub fn generate_html(config: &Config, page: &Page) -> String {
+pub fn generate_html(config: &Config, page: &SpaPage) -> String {
     let title = if page.attributes.title.is_empty() {
         &config.default_page_attributes.title
     } else {
