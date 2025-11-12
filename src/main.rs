@@ -41,7 +41,7 @@ async fn main() {
 async fn dev() -> Result<()> {
     info!("Starting development server...");
 
-    let config = config::Config::load()
+    let config = config::Config::load(Some(config::Env::Development))
         .await
         .wrap_err("Failed to load configuration")?;
 
@@ -85,7 +85,7 @@ async fn dev() -> Result<()> {
 async fn build() -> Result<()> {
     info!("Building for production...");
 
-    let config = config::Config::load()
+    let config = config::Config::load(Some(config::Env::Production))
         .await
         .wrap_err("Failed to load configuration")?;
 
@@ -182,7 +182,7 @@ async fn build() -> Result<()> {
         info!("All pre-build hooks completed successfully");
     }
 
-    // Generate HTML files for each page
+    // Generate HTML files for each SPA page
     for (page_name, page) in &config.spa_pages {
         let html_content = html::generate_html(&config, page);
         let html_filename = if page_name == "index" {
@@ -196,6 +196,45 @@ async fn build() -> Result<()> {
             .wrap_err_with(|| format!("Failed to write HTML file: {html_filename}"))?;
 
         info!("Generated HTML file: {}", html_filename);
+    }
+
+    // Process HTML pages
+    for (page_name, page) in &config.html_pages {
+        let input_files = html::find_html_files(page_name, page)
+            .await
+            .wrap_err_with(|| format!("Failed to find HTML files for page: {}", page_name))?;
+
+        for input_file in input_files {
+            let html_content = html::process_html_page(&config, page, &input_file)
+                .await
+                .wrap_err_with(|| format!("Failed to process HTML file: {}", input_file))?;
+
+            // Determine output filename
+            let output_filename = if page.pattern.is_some() {
+                // For pattern-based files, use the original filename but in output dir
+                let input_path = std::path::Path::new(&input_file);
+                let filename = input_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("output.html");
+                format!("{}/{}", config.output_dir, filename)
+            } else {
+                // For non-pattern files, use page name
+                if page_name == "index" {
+                    format!("{}/index.html", config.output_dir)
+                } else {
+                    format!("{}/{}.html", config.output_dir, page_name)
+                }
+            };
+
+            tokio::fs::write(&output_filename, html_content)
+                .await
+                .wrap_err_with(|| {
+                    format!("Failed to write processed HTML file: {}", output_filename)
+                })?;
+
+            info!("Processed HTML file: {} -> {}", input_file, output_filename);
+        }
     }
 
     info!(
@@ -331,7 +370,7 @@ async fn init() -> Result<()> {
 async fn clean() -> Result<()> {
     info!("Cleaning build directories...");
 
-    let config = config::Config::load()
+    let config = config::Config::load(None)
         .await
         .wrap_err("Failed to load configuration")?;
 

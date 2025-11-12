@@ -12,6 +12,9 @@ pub struct Config {
     #[serde(default = "default_pages")]
     pub spa_pages: HashMap<String, SpaPage>,
 
+    #[serde(default = "default_html_pages")]
+    pub html_pages: HashMap<String, HtmlPage>,
+
     #[serde(default)]
     pub env_files: EnvFiles,
 
@@ -30,6 +33,7 @@ impl Default for Config {
         Self {
             default_page_attributes: PageAttributes::default(),
             spa_pages: default_pages(),
+            html_pages: default_html_pages(),
             env_files: EnvFiles::default(),
             env: HashMap::new(),
             pre_hook: Vec::new(),
@@ -64,6 +68,25 @@ impl Default for PageAttributes {
             author: default_author(),
             description: default_description(),
             scripts: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HtmlPage {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
+    #[serde(flatten)]
+    pub attributes: PageAttributes,
+}
+
+impl HtmlPage {
+    pub fn get_source_files(&self, page_name: &str) -> String {
+        if let Some(pattern) = &self.pattern {
+            pattern.clone()
+        } else {
+            // Use page name as filename if no pattern specified
+            format!("{}.html", page_name)
         }
     }
 }
@@ -109,16 +132,51 @@ fn default_pages() -> HashMap<String, SpaPage> {
     pages
 }
 
+fn default_html_pages() -> HashMap<String, HtmlPage> {
+    let mut pages = HashMap::new();
+
+    // Example without pattern - looks for src/about.html
+    pages.insert(
+        "about".to_string(),
+        HtmlPage {
+            pattern: None, // Uses key name "about" -> src/about.html
+            attributes: PageAttributes {
+                title: "About Us".to_string(), // This is the HTML <title> tag
+                ..PageAttributes::default()
+            },
+        },
+    );
+
+    // Example with pattern - matches all blog-*.html files in src/
+    pages.insert(
+        "blog_posts".to_string(),
+        HtmlPage {
+            pattern: Some("blog-*.html".to_string()),
+            attributes: PageAttributes {
+                title: "Blog Post".to_string(), // This is the HTML <title> tag
+                ..PageAttributes::default()
+            },
+        },
+    );
+
+    pages
+}
+
 fn default_output_dir() -> String {
     "dist".to_string()
 }
 
+pub enum Env {
+    Development,
+    Production,
+}
+
 impl Config {
-    pub async fn load() -> Result<Self> {
-        Self::load_from("bageri.json5").await
+    pub async fn load(env: Option<Env>) -> Result<Self> {
+        Self::load_from("bageri.json5", env).await
     }
 
-    pub async fn load_from<P: AsRef<Path>>(path: P) -> Result<Self> {
+    pub async fn load_from<P: AsRef<Path>>(path: P, env: Option<Env>) -> Result<Self> {
         let content = fs::read_to_string(&path)
             .await
             .with_context(|| format!("Failed to read config file: {}", path.as_ref().display()))?;
@@ -128,10 +186,17 @@ impl Config {
 
         config.env = HashMap::new();
 
+        let env = match env {
+            Some(e) => e,
+            None => match std::env::var("NODE_ENV").unwrap_or_default().as_str() {
+                "production" => Env::Production,
+                _ => Env::Development,
+            },
+        };
         // Load environment variables from specified env files
-        let env_file = match std::env::var("NODE_ENV").unwrap_or_default().as_str() {
-            "production" => config.env_files.prd.as_deref().unwrap_or(".env.prd"),
-            _ => config.env_files.dev.as_deref().unwrap_or(".env"),
+        let env_file = match env {
+            Env::Production => config.env_files.prd.as_deref().unwrap_or(".env.prd"),
+            Env::Development => config.env_files.dev.as_deref().unwrap_or(".env"),
         };
 
         if let Ok(env_content) = fs::read_to_string(env_file).await {
