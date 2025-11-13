@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::path::Path;
 use tokio::fs;
 
+use crate::info;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     #[serde(flatten)]
@@ -200,6 +202,7 @@ impl Config {
         };
 
         if let Ok(env_content) = fs::read_to_string(env_file).await {
+            info!("Loaded environment variables from {}", env_file);
             for line in env_content.lines() {
                 let line = line.trim();
                 if line.is_empty() || line.starts_with('#') {
