@@ -1,8 +1,8 @@
 use crate::config::{Config, HtmlPage, PageAttributes, SpaPage};
+use crate::prelude::*;
 use color_eyre::eyre::{Context, Result};
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use std::collections::HashMap;
-use crate::prelude::*;
 
 pub fn generate_html(config: &Config, page: &SpaPage) -> String {
     let title = if page.attributes.title.is_empty() {
@@ -27,9 +27,18 @@ pub fn generate_html(config: &Config, page: &SpaPage) -> String {
                 @for script in &config.default_page_attributes.scripts {
                     script type="module" src=(script) {}
                 }
+
                 // Then include page-specific scripts
                 @for script in &page.attributes.scripts {
                     script type="module" src=(script) {}
+                }
+
+                @for style in &config.default_page_attributes.styles {
+                    link rel="stylesheet" href=(style);
+                }
+
+                @for style in &page.attributes.styles {
+                    link rel="stylesheet" href=(style);
                 }
                 script {
                     (PreEscaped(format!("// Inject environment variables\nwindow.ENV = {};", generate_env_object(&config.env))))
@@ -89,12 +98,15 @@ pub async fn find_html_files(page_name: &str, page: &HtmlPage) -> Result<Vec<Str
     if let Some(pattern) = &page.pattern {
         // Pattern-based file discovery
         let mut files = vec![];
-        let mut entries = tokio::fs::read_dir("src").await
+        let mut entries = tokio::fs::read_dir("src")
+            .await
             .wrap_err("Failed to read src directory")?;
 
-        while let Some(entry) = entries.next_entry().await
-            .wrap_err("Failed to read directory entry")? {
-
+        while let Some(entry) = entries
+            .next_entry()
+            .await
+            .wrap_err("Failed to read directory entry")?
+        {
             let path = entry.path();
             if let Some(file_name) = path.file_name() {
                 if let Some(name_str) = file_name.to_str() {
@@ -195,7 +207,9 @@ fn extract_body_content(html: &str) -> Result<String> {
 
     if let Some(head_start) = html.find("<head") {
         if let Some(head_end) = html.find("</head>") {
-            warn!("Found <head> section in HTML file, removing it as it will be replaced with custom head");
+            warn!(
+                "Found <head> section in HTML file, removing it as it will be replaced with custom head"
+            );
             let before_head = &html[..head_start];
             let after_head = &html[head_end + 7..];
             let html = format!("{}{}", before_head, after_head);

@@ -18,6 +18,9 @@ pub struct Config {
     pub html_pages: HashMap<String, HtmlPage>,
 
     #[serde(default)]
+    pub watch_patterns: Vec<String>,
+
+    #[serde(default)]
     pub env_files: EnvFiles,
 
     #[serde(skip)]
@@ -40,6 +43,7 @@ impl Default for Config {
             env: HashMap::new(),
             pre_hook: Vec::new(),
             output_dir: default_output_dir(),
+            watch_patterns: Vec::new(),
         }
     }
 }
@@ -60,6 +64,9 @@ pub struct PageAttributes {
 
     #[serde(default)]
     pub scripts: Vec<String>,
+
+    #[serde(default)]
+    pub styles: Vec<String>,
 }
 
 impl Default for PageAttributes {
@@ -70,6 +77,7 @@ impl Default for PageAttributes {
             author: default_author(),
             description: default_description(),
             scripts: Vec::new(),
+            styles: Vec::new(),
         }
     }
 }

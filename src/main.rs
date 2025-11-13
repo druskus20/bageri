@@ -49,7 +49,7 @@ async fn dev() -> Result<()> {
     build().await?;
 
     // Start file watcher for src directory
-    let _watcher = watcher::watch_files("src", move || {
+    let _watcher = watcher::watch_files(config.watch_patterns, move || {
         info!("Files changed, rebuilding...");
         tokio::spawn(async {
             if let Err(e) = build().await {
@@ -60,8 +60,6 @@ async fn dev() -> Result<()> {
         });
     })
     .wrap_err("Failed to start file watcher")?;
-
-    info!("Watching src/ directory for changes");
 
     let app = Router::new()
         .route(

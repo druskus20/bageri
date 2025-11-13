@@ -1,11 +1,12 @@
+use crate::prelude::*;
+use color_eyre::eyre::{Context, Result};
 use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::Path;
 use std::sync::mpsc;
 use std::time::Duration;
-use color_eyre::eyre::{Result, Context};
 
-pub fn watch_files<P: AsRef<Path>>(
-    path: P,
+pub fn watch_files(
+    watch_patterns: Vec<String>,
     callback: impl Fn() + Send + 'static,
 ) -> Result<RecommendedWatcher> {
     let (tx, rx) = mpsc::channel();
@@ -17,10 +18,32 @@ pub fn watch_files<P: AsRef<Path>>(
             }
         },
         Config::default(),
-    ).wrap_err("Failed to create file watcher")?;
+    )
+    .wrap_err("Failed to create file watcher")?;
 
-    watcher.watch(path.as_ref(), RecursiveMode::Recursive)
-        .wrap_err("Failed to start watching files")?;
+    // use glob to consolidate watch patterns
+    let mut paths_to_watch = Vec::new();
+    for pattern in watch_patterns {
+        for entry in glob::glob(&pattern).wrap_err("Failed to read glob pattern")? {
+            match entry {
+                Ok(path) => {
+                    if path.is_dir() {
+                        paths_to_watch.push(path);
+                    } else if let Some(parent) = path.parent() {
+                        paths_to_watch.push(parent.to_path_buf());
+                    }
+                }
+                Err(e) => eprintln!("Glob pattern error: {e}"),
+            }
+        }
+    }
+
+    for path in paths_to_watch {
+        info!("Watching path: {:?}", path);
+        watcher
+            .watch(&path, RecursiveMode::Recursive)
+            .wrap_err_with(|| format!("Failed to watch path: {:?}", path))?;
+    }
 
     tokio::spawn(async move {
         let mut debounce_timer = None::<tokio::time::Instant>;
@@ -58,3 +81,4 @@ pub fn watch_files<P: AsRef<Path>>(
 
     Ok(watcher)
 }
+
