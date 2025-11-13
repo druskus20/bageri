@@ -6,14 +6,24 @@ mod prelude {
 }
 use prelude::*;
 
-use axum::{Router, routing::get};
+use axum::{
+    Router,
+    routing::get,
+    response::sse::{Event, Sse},
+    response::Response,
+    http::StatusCode,
+};
+use futures::stream::{self, Stream};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::{
     collections::VecDeque,
+    convert::Infallible,
     io::{BufRead, BufReader},
     sync::{Arc, Mutex},
     thread,
+    time::Duration,
 };
+use tokio::sync::broadcast;
 use tower_http::services::ServeDir;
 
 mod cli;
@@ -45,17 +55,24 @@ async fn dev() -> Result<()> {
         .await
         .wrap_err("Failed to load configuration")?;
 
-    // Run initial build
-    build().await?;
+    // Create broadcast channel for live reload events
+    let (reload_tx, _) = broadcast::channel::<()>(16);
+    let reload_tx_clone = reload_tx.clone();
+
+    // Run initial build for development
+    build_with_env(Some(config::Env::Development)).await?;
 
     // Start file watcher for src directory
     let _watcher = watcher::watch_files(config.watch_patterns, move || {
         info!("Files changed, rebuilding...");
-        tokio::spawn(async {
-            if let Err(e) = build().await {
+        let tx = reload_tx_clone.clone();
+        tokio::spawn(async move {
+            if let Err(e) = build_with_env(Some(config::Env::Development)).await {
                 error!("Rebuild failed: {}", e);
             } else {
                 info!("Rebuild completed");
+                // Send reload event to connected browsers
+                let _ = tx.send(());
             }
         });
     })
@@ -66,6 +83,10 @@ async fn dev() -> Result<()> {
             "/",
             get(|| async { axum::response::Redirect::permanent("/index.html") }),
         )
+        .route("/live-reload", get({
+            let tx = reload_tx.clone();
+            move || live_reload_sse(tx)
+        }))
         .fallback_service(ServeDir::new(&config.output_dir));
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
@@ -80,10 +101,37 @@ async fn dev() -> Result<()> {
     Ok(())
 }
 
-async fn build() -> Result<()> {
-    info!("Building for production...");
+async fn live_reload_sse(
+    tx: broadcast::Sender<()>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    let mut rx = tx.subscribe();
 
-    let config = config::Config::load(Some(config::Env::Production))
+    let stream = stream::unfold(rx, |mut rx| async move {
+        match rx.recv().await {
+            Ok(_) => {
+                let event = Event::default().data("reload");
+                Some((Ok(event), rx))
+            }
+            Err(_) => None,
+        }
+    });
+
+    Sse::new(stream)
+}
+
+async fn build() -> Result<()> {
+    build_with_env(Some(config::Env::Production)).await
+}
+
+async fn build_with_env(env: Option<config::Env>) -> Result<()> {
+    let env_name = match env {
+        Some(config::Env::Production) => "production",
+        Some(config::Env::Development) => "development",
+        None => "default",
+    };
+    info!("Building for {}...", env_name);
+
+    let config = config::Config::load(env)
         .await
         .wrap_err("Failed to load configuration")?;
 
@@ -180,9 +228,12 @@ async fn build() -> Result<()> {
         info!("All pre-build hooks completed successfully");
     }
 
+    // Use the passed environment parameter
+    let current_env = env.unwrap_or(config::Env::Development);
+
     // Generate HTML files for each SPA page
     for (page_name, page) in &config.spa_pages {
-        let html_content = html::generate_html(&config, page);
+        let html_content = html::generate_html(&config, page, Some(&current_env));
         let html_filename = if page_name == "index" {
             format!("{}/index.html", config.output_dir)
         } else {
@@ -203,7 +254,7 @@ async fn build() -> Result<()> {
             .wrap_err_with(|| format!("Failed to find HTML files for page: {}", page_name))?;
 
         for input_file in input_files {
-            let html_content = html::process_html_page(&config, page, &input_file)
+            let html_content = html::process_html_page(&config, page, &input_file, Some(&current_env))
                 .await
                 .wrap_err_with(|| format!("Failed to process HTML file: {}", input_file))?;
 

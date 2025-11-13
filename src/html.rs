@@ -1,10 +1,10 @@
-use crate::config::{Config, HtmlPage, PageAttributes, SpaPage};
+use crate::config::{Config, Env, HtmlPage, PageAttributes, SpaPage};
 use crate::prelude::*;
 use color_eyre::eyre::{Context, Result};
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use std::collections::HashMap;
 
-pub fn generate_html(config: &Config, page: &SpaPage) -> String {
+pub fn generate_html(config: &Config, page: &SpaPage, env: Option<&Env>) -> String {
     let title = if page.attributes.title.is_empty() {
         &config.default_page_attributes.title
     } else {
@@ -42,6 +42,11 @@ pub fn generate_html(config: &Config, page: &SpaPage) -> String {
                 }
                 script {
                     (PreEscaped(format!("// Inject environment variables\nwindow.ENV = {};", generate_env_object(&config.env))))
+                }
+                @if matches!(env, Some(Env::Development)) {
+                    script {
+                        (PreEscaped(generate_live_reload_script()))
+                    }
                 }
             }
             body {
@@ -92,6 +97,24 @@ fn escape_js(s: &str) -> String {
         .replace('\n', "\\n")
         .replace('\r', "\\r")
         .replace('\t', "\\t")
+}
+
+fn generate_live_reload_script() -> String {
+    r#"
+// Live reload script for development
+(function() {
+    const source = new EventSource('/live-reload');
+    source.onmessage = function(event) {
+        if (event.data === 'reload') {
+            console.log('Files changed, reloading page...');
+            window.location.reload();
+        }
+    };
+    source.onerror = function(event) {
+        console.log('Live reload connection lost, will attempt to reconnect...');
+    };
+})();
+"#.to_string()
 }
 
 pub async fn find_html_files(page_name: &str, page: &HtmlPage) -> Result<Vec<String>> {
@@ -158,6 +181,7 @@ pub async fn process_html_page(
     config: &Config,
     page: &HtmlPage,
     input_file: &str,
+    env: Option<&Env>,
 ) -> Result<String> {
     let content = tokio::fs::read_to_string(input_file)
         .await
@@ -193,6 +217,11 @@ pub async fn process_html_page(
                 }
                 script {
                     (PreEscaped(format!("// Inject environment variables\nwindow.ENV = {};", generate_env_object(&config.env))))
+                }
+                @if matches!(env, Some(Env::Development)) {
+                    script {
+                        (PreEscaped(generate_live_reload_script()))
+                    }
                 }
             }
             (PreEscaped(body_content))

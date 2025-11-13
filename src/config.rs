@@ -176,6 +176,7 @@ fn default_output_dir() -> String {
     "dist".to_string()
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum Env {
     Development,
     Production,
